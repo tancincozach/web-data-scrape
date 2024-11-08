@@ -1,19 +1,33 @@
+version: '3.8'
+
 services:
-  web:
+  web-scrape:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile  
     container_name: web_scrape
-    command: uvicorn app.asgi:application --host 0.0.0.0 --port 8000 --reload
+    hostname: web-scraper
+    command: uvicorn app.asgi:application --host 0.0.0.0 --port 8080 --reload
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - DJANGO_SETTINGS_MODULE=app.settings
+    networks:
+      - web_data_scrape_network
     volumes:
       - .:/app
       - staticfiles:/app/staticfiles
       - media:/app/media
+    deploy:
+      resources:
+        limits:
+          cpus: '2'        # Set CPU limit (adjust as needed)
+          memory: 4G       # Set memory limit to 4 GB (adjust as needed)
+
+networks:
+  web_data_scrape_network:
+    external: true
 
 volumes:
-  media:
   staticfiles:
+  media:

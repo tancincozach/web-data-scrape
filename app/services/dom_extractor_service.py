@@ -2,89 +2,57 @@ from bs4 import BeautifulSoup
 
 class DomExtractorService:
     def parse(self, html_content: str, parser_type: str = "html.parser"):
-        """Parse the fetched content using BeautifulSoup."""
+        """Parse HTML content using BeautifulSoup."""
         try:
             return BeautifulSoup(html_content, parser_type)
         except Exception as e:
             print(f"Error parsing content: {e}")
             return None
 
-    def get_recursive_elements_in_class(self, soup: BeautifulSoup, class_name: str):
-        """Recursively extract elements with a specified class."""
-        try:
-            if not isinstance(soup, BeautifulSoup):
-                print(f"Expected BeautifulSoup object, got {type(soup)}.")
-                return []
-
-            elements = soup.find_all(class_=class_name)
-            if not elements:
-                print(f"No elements found with class '{class_name}'.")
-                return []
-
-            extracted_data = [self._extract_recursive(element) for element in elements]
-            return extracted_data
-        except Exception as e:
-            print(f"Error extracting elements by class '{class_name}': {e}")
-            return []
-
-    def _extract_recursive(self, element):
-        """Helper function to extract tag, text, attributes, and children recursively."""
+    def _extract_element_data(self, element, recursive=True):
+        """Extract element data, optionally including non-recursive children."""
         return {
             'tag': element.name,
             'text': element.get_text(strip=True),
             'attributes': dict(element.attrs),
-            'children': [self._extract_recursive(child) for child in element.find_all(recursive=False)]
+            'children': [self._extract_element_data(child) for child in element.find_all(recursive=recursive)]
         }
 
-    def get_selected_elements_on_container(self, soup: BeautifulSoup, container_class_name: str, white_list_elements=None):
-        """
-        Get information from elements of a specific class, filtered by a whitelist.
+    def get_elements(self, soup, class_names, recursive=True, limit=None):
+        """Fetch elements by class names and extract their data."""
+        class_names = [class_names] if isinstance(class_names, str) else class_names
+        elements = [el for cls in class_names for el in soup.find_all(class_=cls, limit=limit)]
+        
+        return [self._extract_element_data(el, recursive) for el in elements] if elements else []
 
-        :param soup: Parsed HTML document.
-        :param container_class_name: Class name of the container that holds the product elements.
-        :param white_list_elements: List of allowed class names for filtering elements (optional).
-        :return: A list of dictionaries containing class names and their corresponding text values.
-        """
-        if white_list_elements is None:
-            white_list_elements = []
+    def get_filtered_elements(self, soup, container_class, whitelist_classes=None):
+        """Extract whitelisted elements inside a specific container."""
+        whitelist_classes = whitelist_classes or []
+        container_elements = self.get_elements(soup, container_class)
 
-        elements = self.get_recursive_elements_in_class(soup, container_class_name)
+        def search_for_whitelisted(el, data):
+            for child in el.get('children', []):
+                child_classes = child.get('attributes', {}).get('class', [])
+                if isinstance(child_classes, str):
+                    child_classes = child_classes.split()
+                
+                for whitelist in whitelist_classes:
+                    if whitelist in child_classes:
+                        data[whitelist] = child.get('text', 'Not found')
+                search_for_whitelisted(child, data)
+
         result = []
-
-        print(f"Found {len(elements)} elements in the container class '{container_class_name}'.")
-
-        for element in elements:
+        for el in container_elements:
             element_data = {}
-
-            # Collect data based on the whitelist
-            for white_class in white_list_elements:
-                matching_child = next(
-                    (child for child in element.get('children', [])
-                     if white_class in child.get('attributes', {}).get('class', [])),
-                    None
-                )
-                if matching_child:
-                    element_data[white_class] = matching_child.get('text', 'Not found')
-
-            if element_data:  # Only add if we found relevant data
+            search_for_whitelisted(el, element_data)
+            if element_data:
                 result.append(element_data)
-
-        if not result:
-            print("No products found with the specified class name and whitelist.")
-
+        
         return result
-    
-    def get_all_elements_in_class(self, soup, class_name):
-        """Get all elements of a specified class."""
-        return self.get_recursive_elements_in_class(soup, class_name)
 
-    def get_selected_elements_in_class(self, soup, class_name, white_list):
-        """Get selected elements based on the provided white list."""
-        return self.get_selected_elements_on_container(soup, class_name, white_list)
-    
-    def get_total_pages(self, soup, has_pagination, pagination_class):
-        """Calculate total pages based on pagination structure."""
-        if has_pagination == 'true' and pagination_class:
+    def get_total_pages(self, soup, pagination_class=None):
+        """Get total page count based on pagination elements."""
+        if pagination_class:
             pagination_elements = soup.find_all(class_=pagination_class)
             return len(pagination_elements) if pagination_elements else 1
         return 1

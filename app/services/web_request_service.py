@@ -62,13 +62,40 @@ class WebRequestService:
                 await page.goto(url)
 
                 if menu_selector:
-                    # Wait for the dynamic element to load
                     await page.wait_for_selector(menu_selector)
                     await page.hover(menu_selector)  # Optionally interact with the element
 
                 content = await page.content()
                 await browser.close()
                 return content
+        except Exception as e:
+            return self._handle_error(url, e)
+        
+        """
+        Fetch JavaScript-rendered content using Playwright and optionally scrape elements by class name.
+
+        :param url: The URL of the page to fetch.
+        :param class_name: The class name of the elements to scrape.
+        :param headless: Whether to run the browser in headless mode (default: True).
+        :return: The text content of elements with the specified class name.
+        """
+        try:
+            proxy = self._get_proxy()
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(
+                    headless=headless,
+                    proxy={"server": proxy['http']} if proxy else None
+                )
+                page = await browser.new_page()
+                await page.goto(url)
+
+                await page.wait_for_selector(f'.{class_name}')
+
+                elements = await page.locator(f'.{class_name}').all_text_contents()
+
+                await browser.close()
+
+                return "\n".join(elements)  # Return as a concatenated string
         except Exception as e:
             return self._handle_error(url, e)
 
