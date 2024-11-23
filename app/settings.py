@@ -15,8 +15,7 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'your-default-secret-key')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
@@ -25,15 +24,15 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split('
 
 # Application definition
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'app.scrape',
+    'app.client_management',
     'rest_framework',
-    'channels',  # Add this line for Django Channels
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -44,6 +43,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app.middleware.ClientAuthenticationMiddleware'
 ]
 
 ROOT_URLCONF = 'app.urls'
@@ -66,9 +66,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'app.wsgi.application'
 
-ASGI_APPLICATION = 'app.asgi.application'  # Add this line for ASGI application
+ASGI_APPLICATION = 'app.asgi.application'
 
-# Removed database configuration
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': os.environ.get('POSTGRES_HOST'),
+        'PORT': os.environ.get('POSTGRES_PORT'),
+    }
+}
 
 # Password validation (optional)
 AUTH_PASSWORD_VALIDATORS = [

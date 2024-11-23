@@ -1,17 +1,20 @@
-version: '3.8'
-
 services:
   web-scrape:
     build:
       context: .
-      dockerfile: Dockerfile  
+      dockerfile: Dockerfile
     container_name: web_scrape
     hostname: web-scraper
     command: uvicorn app.asgi:application --host 0.0.0.0 --port 8080 --reload
     ports:
       - "8080:8080"
     environment:
-      - DJANGO_SETTINGS_MODULE=app.settings
+      DJANGO_SETTINGS_MODULE: app.settings
+      POSTGRES_DB: web_scrape_db
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: s3cr3t
+      DATABASE_HOST: db
+      DATABASE_PORT: 5433  # Make sure this matches the external port
     networks:
       - web_data_scrape_network
     volumes:
@@ -21,8 +24,23 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'        # Set CPU limit (adjust as needed)
-          memory: 4G       # Set memory limit to 4 GB (adjust as needed)
+          cpus: '2'
+          memory: 4G
+          
+  db:
+    image: postgres:latest
+    container_name: postgres_web_scrape_db
+    environment:
+      POSTGRES_DB: web_scrape_db
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: s3cr3t
+      PGPORT: 5433
+    ports:
+      - "5433:5433"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - web_data_scrape_network
 
 networks:
   web_data_scrape_network:
@@ -31,3 +49,4 @@ networks:
 volumes:
   staticfiles:
   media:
+  postgres_data:
