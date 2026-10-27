@@ -57,8 +57,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "app.scrape",
-    "app.client_management",
+    "app.client_management.apps.ClientManagementConfig",
     "rest_framework",
+    "drf_spectacular",
     "channels",
 ]
 
@@ -74,10 +75,27 @@ MIDDLEWARE = [
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "app.api_exceptions.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_RATES": {
         "scrape": os.getenv("SCRAPE_THROTTLE_RATE", "60/min"),
     },
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Web Data Scrape API",
+    "DESCRIPTION": (
+        "Render web pages with Playwright and extract elements by CSS class name."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+}
+
+SCALAR_TITLE = os.getenv("SCALAR_TITLE", "Web Data Scrape API")
+SCALAR_JS_URL = os.getenv(
+    "SCALAR_JS_URL",
+    "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.76.0/esm.js",
+)
 
 ROOT_URLCONF = "app.urls"
 

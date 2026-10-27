@@ -11,9 +11,28 @@ class QueryListField(serializers.ListField):
 
 
 class ScrapeRequestSerializer(serializers.Serializer):
-    url = serializers.URLField(max_length=2048)
+    url = serializers.URLField(
+        max_length=2048,
+        help_text="HTTP(S) URL to render and scrape.",
+    )
     class_name = QueryListField(
         child=serializers.CharField(max_length=200, allow_blank=False),
         allow_empty=False,
         max_length=50,
+        help_text="CSS class to extract. Repeat for multiple classes.",
+    )
+
+
+class ScrapeErrorSerializer(serializers.Serializer):
+    error = serializers.CharField(help_text="Human-readable error message.")
+    details = serializers.JSONField(
+        required=False,
+        help_text="Optional validation details keyed by parameter.",
+    )
+
+
+class ScrapeResponseSerializer(serializers.Serializer):
+    scraped_data = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="Extracted element trees.",
     )

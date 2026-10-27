@@ -52,6 +52,14 @@ Extraction is bounded by configurable depth, node, element, HTML-size, and
 per-client rate limits. The API accepts class names only; it does not execute
 arbitrary CSS selectors, paginate, or expose a proxy endpoint.
 
+## API reference
+
+The interactive [Scalar](https://scalar.com/) reference is served at
+`/api/docs/`. It reads the generated OpenAPI document from `/api/schema/`.
+Both routes are public; the schema contains no secrets. The Scalar browser
+asset is pinned to a specific version, and `SCALAR_JS_URL` can point at a
+self-hosted copy instead.
+
 ## Local setup
 
 Python 3.11 and PostgreSQL are expected.
@@ -125,6 +133,8 @@ tests are not part of this suite.
 | `DJANGO_DEBUG` | Enable debug mode | `False` |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts | `127.0.0.1,localhost` |
 | `DJANGO_LOG_LEVEL` | Application log level | `INFO` |
+| `SCALAR_TITLE` | Scalar documentation page title | `Web Data Scrape API` |
+| `SCALAR_JS_URL` | Scalar browser asset URL | pinned jsDelivr build |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Database credentials | none |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | Database address | unset (local socket) / `5432` |
 | `SCRAPE_THROTTLE_RATE` | DRF rate limit per client | `60/min` |

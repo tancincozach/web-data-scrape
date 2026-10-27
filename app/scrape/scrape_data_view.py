@@ -1,6 +1,7 @@
 import logging
 from urllib.parse import urlsplit
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,7 +15,11 @@ from ..services.exceptions import (
     ParseError,
     UnsafeUrlError,
 )
-from .serializers import ScrapeRequestSerializer
+from .serializers import (
+    ScrapeErrorSerializer,
+    ScrapeRequestSerializer,
+    ScrapeResponseSerializer,
+)
 from .services import ScrapeService
 
 logger = logging.getLogger(__name__)
@@ -31,6 +36,25 @@ class WebScrapeView(APIView):
         super().__init__(**kwargs)
         self.scrape_service = scrape_service or ScrapeService.from_settings()
 
+    @extend_schema(
+        tags=["scrape"],
+        operation_id="scrape_data",
+        summary="Scrape elements by class name",
+        description=(
+            "Render a public HTTP(S) page with Playwright and return the "
+            "selected DOM elements and their descendants."
+        ),
+        parameters=[ScrapeRequestSerializer],
+        responses={
+            200: ScrapeResponseSerializer,
+            400: ScrapeErrorSerializer,
+            401: ScrapeErrorSerializer,
+            429: ScrapeErrorSerializer,
+            500: ScrapeErrorSerializer,
+            502: ScrapeErrorSerializer,
+            504: ScrapeErrorSerializer,
+        },
+    )
     def get(self, request, *args, **kwargs):
         """Scrape ``url`` and return elements matching ``class_name``."""
         serializer = ScrapeRequestSerializer(data=request.query_params)
