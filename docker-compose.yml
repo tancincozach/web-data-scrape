@@ -1,52 +1,32 @@
 services:
-  web-scrape:
+  web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: web_scrape
-    hostname: web-scraper
-    command: uvicorn app.asgi:application --host 0.0.0.0 --port 8080 --reload
-    ports:
-      - "8080:8080"
+    env_file: .env
     environment:
-      DJANGO_SETTINGS_MODULE: app.settings
-      POSTGRES_DB: web_scrape_db
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: s3cr3t
-      DATABASE_HOST: db
-      DATABASE_PORT: 5433  # Make sure this matches the external port
-    networks:
-      - web_data_scrape_network
-    volumes:
-      - .:/app
-      - staticfiles:/app/staticfiles
-      - media:/app/media
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-          
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    shm_size: "1gb"
+    restart: unless-stopped
+
   db:
-    image: postgres:latest
-    container_name: postgres_web_scrape_db
-    environment:
-      POSTGRES_DB: web_scrape_db
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: s3cr3t
-      PGPORT: 5433
-    ports:
-      - "5433:5433"
+    image: postgres:16-alpine
+    env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - web_data_scrape_network
-
-networks:
-  web_data_scrape_network:
-    external: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
 volumes:
-  staticfiles:
-  media:
   postgres_data:

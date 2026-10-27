@@ -1,0 +1,16 @@
+.git
+.gitignore
+.github
+.idea
+.pytest_cache
+__pycache__
+*.py[cod]
+.env
+.venv
+venv
+env
+tests
+staticfiles
+media
+.coverage
+htmlcov
