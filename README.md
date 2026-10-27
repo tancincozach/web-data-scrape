@@ -60,6 +60,9 @@ Both routes are public; the schema contains no secrets. The Scalar browser
 asset is pinned to a specific version, and `SCALAR_JS_URL` can point at a
 self-hosted copy instead.
 
+`GET /healthz/` is a public liveness endpoint returning `{"status": "ok"}`.
+The container healthcheck uses it; it does not check the database.
+
 ## Local setup
 
 Python 3.11 and PostgreSQL are expected.
@@ -122,8 +125,9 @@ flake8 app tests
 python manage.py check --settings=app.test_settings
 ```
 
-CI runs the suite on Python 3.11. Real Playwright and PostgreSQL integration
-tests are not part of this suite.
+CI runs the suite on Python 3.11. A separate container-smoke job builds the
+Compose stack and verifies the health, Scalar, and OpenAPI routes. Real
+Playwright and PostgreSQL integration tests are not part of the pytest suite.
 
 ## Configuration
 
