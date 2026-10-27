@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client_management', '0001_initial'),
+        ("client_management", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelTable(
-            name='client',
-            table='web_scrape_clients',
+            name="client",
+            table="web_scrape_clients",
         ),
     ]

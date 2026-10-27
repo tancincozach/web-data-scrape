@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 
 urlpatterns = [
-    path('scrape/', include('app.scrape.urls')),
+    path("scrape/", include("app.scrape.urls")),
 ]
 
 if settings.DEBUG:
