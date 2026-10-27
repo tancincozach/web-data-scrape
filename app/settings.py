@@ -132,6 +132,22 @@ DATABASES = {
     }
 }
 
+REDIS_URL = os.getenv("REDIS_URL")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "web-data-scrape",
+        }
+    }
+
 # Password validation (optional)
 AUTH_PASSWORD_VALIDATORS = [
     {

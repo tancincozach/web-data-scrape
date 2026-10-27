@@ -111,8 +111,9 @@ docker compose up --build
 ```
 
 The web container runs migrations on startup by default. Set
-`RUN_MIGRATIONS=0` if migrations are managed separately. PostgreSQL is not
-published to the host by default.
+`RUN_MIGRATIONS=0` if migrations are managed separately. PostgreSQL and Redis
+are not published to the host by default; Redis is used for shared rate-limit
+state.
 
 ## Tests
 
@@ -141,6 +142,7 @@ Playwright and PostgreSQL integration tests are not part of the pytest suite.
 | `SCALAR_JS_URL` | Scalar browser asset URL | pinned jsDelivr build |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Database credentials | none |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | Database address | unset (local socket) / `5432` |
+| `REDIS_URL` | Shared cache for throttling | unset (local memory) |
 | `SCRAPE_THROTTLE_RATE` | DRF rate limit per client | `60/min` |
 | `SCRAPE_REQUEST_TIMEOUT_SECONDS` | Static request timeout | `30` |
 | `SCRAPE_PAGE_TIMEOUT_MS` | Playwright navigation timeout | `30000` |
@@ -149,9 +151,9 @@ Playwright and PostgreSQL integration tests are not part of the pytest suite.
 | `SCRAPE_MAX_EXTRACTION_NODES` | Maximum DOM nodes per match | `10000` |
 | `SCRAPE_MAX_ELEMENTS` | Maximum matched elements per request | `1000` |
 
-Rate limits use Django's configured cache. The default local-memory cache is
-per-process; configure a shared cache backend if the service runs multiple
-workers or replicas.
+Rate limits use Django's configured cache. Compose supplies Redis at
+`redis://redis:6379/1`; outside Compose, set `REDIS_URL` when running more than
+one worker or replica. Without it, Django uses a process-local cache.
 
 ## Security notes
 

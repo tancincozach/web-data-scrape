@@ -18,6 +18,13 @@ DATABASES = {
     }
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "web-data-scrape-tests",
+    }
+}
+
 # Keep the real hasher in tests so credential verification exercises the
 # production code path rather than a weaker test-only hasher.
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.PBKDF2PasswordHasher"]
