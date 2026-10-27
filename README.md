@@ -74,6 +74,13 @@ pip install -r requirements-dev.txt
 playwright install chromium
 ```
 
+Runtime dependencies are locked in `requirements.txt`. Edit
+`requirements.in` and regenerate the lock after dependency changes:
+
+```bash
+pip-compile --output-file=requirements.txt requirements.in
+```
+
 Copy the environment template and replace the placeholder secrets:
 
 ```bash
