@@ -1,35 +1,73 @@
+from argparse import ArgumentTypeError
+from datetime import datetime, time
+
 from django.core.management.base import BaseCommand
-from app.client_management.models import hash_secret, Client
-from datetime import datetime
+from django.utils import timezone
+
+from app.client_management.models import Client
+
+
+def parse_bool(value):
+    """Parse a command-line boolean without ``bool('False') == True`` surprises."""
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ArgumentTypeError("Expected one of: true, false, 1, 0, yes, no, on, off.")
+
 
 class Command(BaseCommand):
-    help = 'Create a new client and generate credentials (client_id and client_secret)'
+    help = "Create a new client and generate credentials (client_id and client_secret)"
 
     def add_arguments(self, parser):
-        parser.add_argument('name', type=str, help="The name of the client")
-        parser.add_argument('is_active', type=bool, help="Whether the client is active")
-        parser.add_argument('expires_at', type=str, help="Expiration date in YYYY-MM-DD format (Leave empty for no expiration)", nargs='?')
+        parser.add_argument("name", type=str, help="The name of the client")
+        parser.add_argument(
+            "is_active",
+            nargs="?",
+            default=True,
+            type=parse_bool,
+            help="Whether the client is active (default: true)",
+        )
+        parser.add_argument(
+            "expires_at",
+            type=str,
+            help="Expiration date in YYYY-MM-DD format (leave empty for no expiration)",
+            nargs="?",
+        )
 
     def handle(self, *args, **kwargs):
-        name = kwargs['name']
-        is_active = kwargs['is_active']
-        expires_at = kwargs.get('expires_at', None)
-        
+        name = kwargs["name"]
+        is_active = kwargs["is_active"]
+        expires_at = kwargs.get("expires_at")
+
         if expires_at:
             try:
-                expires_at = datetime.strptime(expires_at, '%Y-%m-%d')
+                expiry_date = datetime.strptime(expires_at, "%Y-%m-%d").date()
             except ValueError:
-                self.stdout.write(self.style.ERROR("Invalid date format. Use YYYY-MM-DD."))
+                self.stdout.write(
+                    self.style.ERROR("Invalid date format. Use YYYY-MM-DD.")
+                )
                 return
+            expires_at = timezone.make_aware(datetime.combine(expiry_date, time.min))
         else:
             expires_at = None
 
-        client = Client(name=name, is_active=is_active, expires_at=expires_at)
+        client, raw_secret = Client.issue_credentials(
+            name=name,
+            is_active=is_active,
+            expires_at=expires_at,
+        )
 
-        client_id, raw_secret = client.generate_credentials()
-        client.client_id = client_id
-        client.client_secret = hash_secret(raw_secret)
-        client.save()
-
-        self.stdout.write(self.style.SUCCESS(f"Successfully created client {name} with client_id: {client_id}"))
-        self.stdout.write(self.style.SUCCESS(f"Client Secret (raw): {raw_secret} - Save this securely"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Successfully created client {name} with client_id: {client.client_id}"
+            )
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Client Secret (raw): {raw_secret} - Save this securely; it cannot be shown again."
+            )
+        )

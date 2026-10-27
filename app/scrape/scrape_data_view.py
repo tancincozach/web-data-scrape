@@ -1,70 +1,93 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from asgiref.sync import async_to_sync
+import logging
+from urllib.parse import urlsplit
 
-from ..services.web_request_service import WebRequestService
-from ..services.dom_extractor_service import DomExtractorService
-from ..services.logger_service import LoggerService
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from ..client_management.authentication import ClientAuthentication
+from ..client_management.permissions import IsClient
+from ..client_management.throttling import ClientRateThrottle
+from ..services.exceptions import (
+    FetchError,
+    FetchTimeoutError,
+    ParseError,
+    UnsafeUrlError,
+)
+from .serializers import ScrapeRequestSerializer
+from .services import ScrapeService
+
+logger = logging.getLogger(__name__)
+
 
 class WebScrapeView(APIView):
-    """
-    API view for scraping web content and extracting specific DOM elements based on user input.
+    """API view for fetching a page and extracting elements by class name."""
 
-    This view handles both static and dynamic web pages, with optional proxy support and pagination.
-    """
+    authentication_classes = [ClientAuthentication]
+    permission_classes = [IsClient]
+    throttle_classes = [ClientRateThrottle]
 
-    def __init__(self, **kwargs):
-        """
-        Initialize the WebScrapeView with services for web scraping and DOM extraction.
-        """
+    def __init__(self, scrape_service=None, **kwargs):
         super().__init__(**kwargs)
-        self.web_service = WebRequestService()  # Service for handling web requests
-        self.dom_extractor_service = DomExtractorService()  # Service for DOM extraction
-        self.logger_service = LoggerService(__name__)
+        self.scrape_service = scrape_service or ScrapeService.from_settings()
 
     def get(self, request, *args, **kwargs):
-        """
-        Handle GET requests to scrape web content based on query parameters.
-        
-        The request should contain `class_name` (a list of class names) and `element_type` (HTML tag type).
-        
-        :param request: The GET request object containing JSON data with scrape metadata.
-        :param args: Additional positional arguments.
-        :param kwargs: Additional keyword arguments.
-        :return: A Response object with the scraped data or an error response.
-        """
-        # Extract class names and element type from query parameters
-        class_name = request.query_params.getlist('class_name')
-        url = request.query_params.get('url')
+        """Scrape ``url`` and return elements matching ``class_name``."""
+        serializer = ScrapeRequestSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return self.error_response(
+                "Invalid request parameters.",
+                status.HTTP_400_BAD_REQUEST,
+                details=serializer.errors,
+            )
 
-        if not class_name:
-            return self.error_response("class_name is required and should be a list", status.HTTP_400_BAD_REQUEST)
-        
-        if not url:
-            return self.error_response("URL is required", status.HTTP_400_BAD_REQUEST)
+        url = serializer.validated_data["url"]
+        class_names = serializer.validated_data["class_name"]
 
         try:
-            # Fetch HTML content asynchronously
-            html_content = async_to_sync(self.web_service.fetch_with_playwright)(url)
+            data = self.scrape_service.scrape(url, class_names)
+            return Response({"scraped_data": data}, status=status.HTTP_200_OK)
 
-            if not html_content:
-                return self.error_response(f"Unable to fetch content from {url}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except UnsafeUrlError:
+            logger.warning("Rejected unsafe scraping target host=%s", self._host(url))
+            return self.error_response(
+                "The URL is not allowed.", status.HTTP_400_BAD_REQUEST
+            )
+        except FetchTimeoutError:
+            logger.warning("Scraping timed out host=%s", self._host(url))
+            return self.error_response(
+                "The target took too long to respond.",
+                status.HTTP_504_GATEWAY_TIMEOUT,
+            )
+        except FetchError:
+            logger.warning("Scraping fetch failed host=%s", self._host(url))
+            return self.error_response(
+                "Unable to fetch the target URL.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+        except ParseError:
+            logger.warning("Scraping parse failed host=%s", self._host(url))
+            return self.error_response(
+                "Unable to parse the target page.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception:
+            logger.exception("Unexpected error while scraping host=%s", self._host(url))
+            return self.error_response(
+                "An unexpected error occurred.",
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-            # Parse the content
-            soup = self.dom_extractor_service.parse(html_content)
-            if not soup:
-                return self.error_response("Error parsing the content", status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @staticmethod
+    def _host(url):
+        try:
+            return urlsplit(url).hostname or "unknown"
+        except ValueError:
+            return "unknown"
 
-            data = self.dom_extractor_service.get_elements(soup, class_name)
-            return Response({"scraped_data": data }, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            self.logger_service.error(f"Error in scraping: {str(e)}", True)
-            return self.error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def error_response(self, message, status_code):
-        """
-        Helper method to return standardized error responses.
-        """
-        return Response({"error": message}, status=status_code)
+    def error_response(self, message, status_code, details=None):
+        """Return a standardized error response."""
+        payload = {"error": message}
+        if details:
+            payload["details"] = details
+        return Response(payload, status=status_code)
