@@ -53,6 +53,9 @@ jobs:
         run: |
           curl -fsS http://127.0.0.1:18080/api/docs/ | grep -q 'createApiReference'
           curl -fsS -H 'Accept: application/json' http://127.0.0.1:18080/api/schema/ | grep -q '/scrape/data/'
+      - name: Check shared cache
+        run: |
+          docker compose exec -T web python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings'); django.setup(); from django.core.cache import cache; cache.set('ci-smoke', 'ok', 10); print(cache.get('ci-smoke'))" | grep -qx ok
       - name: Cleanup
         if: always()
         run: docker compose down -v

@@ -1,9 +1,11 @@
 from unittest.mock import patch
 
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from app.client_management.models import Client
+from app.client_management.throttling import ClientRateThrottle
 
 pytestmark = pytest.mark.django_db
 
@@ -75,3 +77,24 @@ def test_invalid_request_parameters_are_rejected_before_scraping(mock_service):
 
     assert response.status_code == 400
     assert response.json()["error"] == "Invalid request parameters."
+
+
+def test_rate_limit_returns_429_after_the_client_quota():
+    cache.clear()
+    client, raw_secret = Client.issue_credentials(name="Acme")
+    headers = auth_headers(client, raw_secret)
+
+    with patch("app.scrape.scrape_data_view.ScrapeService") as mock_service:
+        mock_service.from_settings.return_value = FakeScrapeService()
+        with patch.object(ClientRateThrottle, "get_rate", return_value="2/min"):
+            responses = [
+                APIClient().get(
+                    "/scrape/data/",
+                    {"url": "https://example.com", "class_name": "item"},
+                    **headers,
+                )
+                for _ in range(3)
+            ]
+
+    assert [response.status_code for response in responses] == [200, 200, 429]
+    assert "throttled" in responses[2].json()["error"].lower()
